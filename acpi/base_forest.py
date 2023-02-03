@@ -1,4 +1,4 @@
-import cext_acv
+import cext_acpi
 from .utils import safe_isinstance, get_partition
 import numpy as np
 from tqdm import tqdm
@@ -188,7 +188,7 @@ class SingleTree:
         self.values = self.values * scaling
         self.node_sample_weight = tree.weighted_n_node_samples.astype(np.float64)
 
-        self.max_depth = cext_acv.compute_expectations(
+        self.max_depth = cext_acpi.compute_expectations(
             self.children_left, self.children_right, self.node_sample_weight,
             self.values
         )

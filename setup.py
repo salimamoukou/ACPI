@@ -5,9 +5,9 @@ import numpy
 # from setuptools import setup, Extension # for pypi build
 from distutils.core import setup, Extension  # python setup
 
-c_ext = Extension('cext_acv', sources=['acpi/cext_acv/_cext.cc'])
+c_ext = Extension('cext_acpi', sources=['acpi/cext_acpi/_cext.cc'])
 
-cy_ext = Extension('cyext_acv', ['acpi/cyext_acv/cyext_acv.pyx'], extra_compile_args=['-fopenmp'],
+cy_ext = Extension('cyext_acpi', ['acpi/cyext_acpi/cyext_acpi.pyx'], extra_compile_args=['-fopenmp'],
                    extra_link_args=['-fopenmp'])
 
 this_directory = Path(__file__).parent

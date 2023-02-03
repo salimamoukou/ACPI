@@ -196,23 +196,23 @@ cdef int l(int i) nogil:
     return i
 
 cdef return_w_cali(const double[:] & x, const double[:, :] & x_cali,
-                    const double[:] & r_cali, const double[:, :] & w_cali, acv_xplainer):
+                    const double[:] & r_cali, const double[:, :] & w_cali, acpi_instance):
 
     cdef np.ndarray[np.float64_t, ndim=2] w_o = np.zeros(shape=(x_cali.shape[0] + 1, x_cali.shape[0] + 1))
     w_o[:-1, :-1] = w_cali
     cdef np.ndarray[np.float64_t, ndim=2] x_cali_new = np.concatenate([x_cali, np.reshape(x, (1, -1))])
     cdef np.ndarray[np.float64_t, ndim=1] r_cali_new = np.concatenate([r_cali, [1e+30]])
-    cdef np.ndarray[np.float64_t, ndim=2] w_corrected = acv_xplainer.compute_forest_weights_cali(x, x_cali_new, r_cali_new, w_o)
+    cdef np.ndarray[np.float64_t, ndim=2] w_corrected = acpi_instance.compute_forest_weights_cali(x, x_cali_new, r_cali_new, w_o)
     return w_corrected, x_cali_new, r_cali_new
 
 cpdef return_w_cali_py(const double[:] & x, const double[:, :] & x_cali,
-                    const double[:] & r_cali, const double[:, :] & w_cali, acv_xplainer):
+                    const double[:] & r_cali, const double[:, :] & w_cali, acpi_instance):
 
     cdef np.ndarray[np.float64_t, ndim=2] w_o = np.zeros(shape=(x_cali.shape[0] + 1, x_cali.shape[0] + 1))
     w_o[:-1, :-1] = w_cali
     cdef np.ndarray[np.float64_t, ndim=2] x_cali_new = np.concatenate([x_cali, np.reshape(x, (1, -1))])
     cdef np.ndarray[np.float64_t, ndim=1] r_cali_new = np.concatenate([r_cali, [1e+30]])
-    cdef np.ndarray[np.float64_t, ndim=2] w_corrected = acv_xplainer.compute_forest_weights_cali(x, x_cali_new, r_cali_new, w_o)
+    cdef np.ndarray[np.float64_t, ndim=2] w_corrected = acpi_instance.compute_forest_weights_cali(x, x_cali_new, r_cali_new, w_o)
     return w_corrected, x_cali_new, r_cali_new
 
 
@@ -323,7 +323,7 @@ cdef compute_partition(const double[:, :] & w_corrected, const double[:] & r_cal
 
 cpdef compute_rf_lcp(const double[:, :] & x_test, const double[:, :] & x_cali,
                      const double[:] & r_cali, const double[:, :] & w_cali,
-                     const float & quantile, acv_xplainer):
+                     const float & quantile, acpi_instance):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
     cdef long[:] s_lcp = np.zeros(shape=x_test.shape[0], dtype=np.int64)
@@ -336,7 +336,7 @@ cpdef compute_rf_lcp(const double[:, :] & x_test, const double[:, :] & x_cali,
     cdef long[:] delta
 
     for i in tqdm(range(x_test.shape[0])):
-        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acv_xplainer)
+        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acpi_instance)
         S, theta, delta = compute_partition(w_corrected, r_cali_new)
 
         # k_star = find_kwd(S, theta, delta, quantile)
@@ -354,7 +354,7 @@ cpdef compute_rf_lcp(const double[:, :] & x_test, const double[:, :] & x_cali,
 
 cpdef compute_rf_lcp_train_one(const double[:, :] & x_test, const double[:, :] & x_cali,
                      const double[:] & r_cali, const double[:, :] & w_cali,
-                     const float & quantile, acv_xplainer, const long & k):
+                     const float & quantile, acpi_instance, const long & k):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
     cdef long[:] s_lcp = np.zeros(shape=x_test.shape[0], dtype=np.int64)
@@ -367,7 +367,7 @@ cpdef compute_rf_lcp_train_one(const double[:, :] & x_test, const double[:, :] &
     cdef long[:] delta
 
     for i in tqdm(range(x_test.shape[0])):
-        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acv_xplainer)
+        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acpi_instance)
         S, theta, delta = compute_partition(w_corrected, r_cali_new)
 
         # k_star = find_kwd(S, theta, delta, quantile) + k
@@ -385,7 +385,7 @@ cpdef compute_rf_lcp_train_one(const double[:, :] & x_test, const double[:, :] &
 
 cpdef compute_rf_lcp_bygroup(const double[:, :] & x_test,  x_cali,
                      r_cali,  w_cali,
-                     const float & quantile, acv_xplainer, const long[:] & group_test):
+                     const float & quantile, acpi_instance, const long[:] & group_test):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
     cdef long[:] s_lcp = np.zeros(shape=x_test.shape[0], dtype=np.int64)
@@ -400,7 +400,7 @@ cpdef compute_rf_lcp_bygroup(const double[:, :] & x_test,  x_cali,
     for i in tqdm(range(x_test.shape[0])):
         w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali[group_test[i]],
                                                             r_cali[group_test[i]], w_cali[group_test[i]],
-                                                            acv_xplainer)
+                                                            acpi_instance)
         S, theta, delta = compute_partition(w_corrected, r_cali_new)
 
         k_star = binary_search(S, delta, quantile)
@@ -418,7 +418,7 @@ cpdef compute_rf_lcp_bygroup(const double[:, :] & x_test,  x_cali,
 
 cpdef compute_rf_lcp_bygroup_train(const double[:, :] & x_test,  x_cali,
                      r_cali,  w_cali,
-                     const float & quantile, acv_xplainer, const long[:] & group_test,
+                     const float & quantile, acpi_instance, const long[:] & group_test,
                      const long & k):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
@@ -434,7 +434,7 @@ cpdef compute_rf_lcp_bygroup_train(const double[:, :] & x_test,  x_cali,
     for i in tqdm(range(x_test.shape[0])):
         w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali[group_test[i]],
                                                             r_cali[group_test[i]], w_cali[group_test[i]],
-                                                            acv_xplainer)
+                                                            acpi_instance)
         S, theta, delta =compute_partition(w_corrected, r_cali_new)
 
         k_star = binary_search(S, delta, quantile) + k
@@ -451,7 +451,7 @@ cpdef compute_rf_lcp_bygroup_train(const double[:, :] & x_test,  x_cali,
 
 cpdef compute_rf_lcp_train(const double[:, :] & x_test, const double[:, :] & x_cali,
                      const double[:] & r_cali, const double[:, :] & w_cali,
-                     const float & quantile, acv_xplainer, const long & k):
+                     const float & quantile, acpi_instance, const long & k):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
     cdef long[:] s_lcp = np.zeros(shape=x_test.shape[0], dtype=np.int64)
@@ -465,7 +465,7 @@ cpdef compute_rf_lcp_train(const double[:, :] & x_test, const double[:, :] & x_c
     cdef long[:] delta
 
     for i in tqdm(range(x_test.shape[0])):
-        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acv_xplainer)
+        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acpi_instance)
         S, theta, delta = compute_partition(w_corrected, r_cali_new)
 
         k_star = binary_search(S, delta, quantile)
@@ -493,7 +493,7 @@ cpdef compute_rf_lcp_train(const double[:, :] & x_test, const double[:, :] & x_c
 
 cpdef compute_rf_lcp_support(const double[:, :] & x_test, const double[:, :] & x_cali,
                      const double[:] & r_cali, const double[:, :] & w_cali,
-                     const float & quantile, acv_xplainer):
+                     const float & quantile, acpi_instance):
 
     cdef double[:] r_lcp = np.zeros(shape=x_test.shape[0])
     cdef long[:] s_lcp = np.zeros(shape=x_test.shape[0], dtype=np.int64)
@@ -508,7 +508,7 @@ cpdef compute_rf_lcp_support(const double[:, :] & x_test, const double[:, :] & x
     cdef list supports, support
     supports = []
     for i in tqdm(range(x_test.shape[0])):
-        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acv_xplainer)
+        w_corrected, x_cali_new, r_cali_new = return_w_cali(x_test[i], x_cali, r_cali, w_cali, acpi_instance)
         S, theta, delta =compute_partition(w_corrected, r_cali_new)
 
         support = []

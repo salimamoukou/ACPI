@@ -2,7 +2,7 @@ from .base_forest import *
 from .utils import classifier_score, quantile_score, mean_score, compute_coverage, compute_coverage_classification, \
     get_values_greater_than
 import numpy as np
-import cyext_acv
+import cyext_acpi
 from skranger.ensemble import RangerForestRegressor
 from sklearn.utils.validation import check_is_fitted, check_X_y, column_or_1d, check_array, as_float_array, \
     check_consistent_length
@@ -598,7 +598,7 @@ class ACPI:
         """
         if not self.check_is_calibrate:
             raise ValueError('You need to fit the calibration before')
-        return cyext_acv.compute_rf_lcp(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
+        return cyext_acpi.compute_rf_lcp(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
 
     def predict_rf_lcp_train(self, x_test, quantile, k=None):
         """Compute the correction term for training-conditional LCP-RF.
@@ -619,9 +619,9 @@ class ACPI:
             raise ValueError('You need to fit the calibration with training_conditional=True '
                              'before')
         if k is None:
-            return cyext_acv.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
+            return cyext_acpi.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
                                                   self.w_cali, quantile, self, self.k_cali)
-        return cyext_acv.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
+        return cyext_acpi.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
                                               self.w_cali, quantile, self, k)
 
     def predict_rf_lcp_train_one(self, x_test, quantile, k=None):
@@ -643,9 +643,9 @@ class ACPI:
             raise ValueError('You need to fit the calibration with training_conditional/one=True '
                              'before')
         if k is None:
-            return cyext_acv.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
+            return cyext_acpi.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
                                                       self.w_cali, quantile, self, self.k_cali_one)
-        return cyext_acv.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
+        return cyext_acpi.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
                                                   self.w_cali, quantile, self, k)
 
     def predict_rf_lcp_bygroup(self, x_test, quantile):
@@ -674,7 +674,7 @@ class ACPI:
             p_test[:, group] = np.sum(w_test[:, self.communities == group], axis=1)
 
         group_test = np.argmax(p_test, axis=1)
-        return cyext_acv.compute_rf_lcp_bygroup(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
+        return cyext_acpi.compute_rf_lcp_bygroup(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
                                                 self.w_cali_bygroup, quantile, self, group_test)
 
     def predict_rf_lcp_bygroup_train(self, x_test, quantile, k=None):
@@ -705,18 +705,18 @@ class ACPI:
 
         group_test = np.argmax(p_test, axis=1)
         if k is None:
-            return cyext_acv.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
+            return cyext_acpi.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
                                                           self.w_cali_bygroup, quantile, self, group_test,
                                                           self.k_cali_bygroup)
         else:
-            return cyext_acv.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
+            return cyext_acpi.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
                                                           self.w_cali_bygroup, quantile, self, group_test,
                                                           k)
 
     def predict_rf_lcp_support(self, x_test, quantile):
         if not self.check_is_calibrate:
             raise ValueError('You need to fit the calibration before')
-        return cyext_acv.compute_rf_lcp_support(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
+        return cyext_acpi.compute_rf_lcp_support(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
 
     def train_conditional_calibration(self):
         """Training-conditional calibration of LCP-RF.
@@ -904,7 +904,7 @@ class ACPI:
         data, y_data = check_X_y(data, y_data, dtype=np.double)
         y, y_data = as_float_array(y).astype(np.double), as_float_array(y_data).astype(np.double)
         self.check_is_acpi_fitted()
-        w = cyext_acv.compute_forest_weights_verbose(X, y, data, y_data,
+        w = cyext_acpi.compute_forest_weights_verbose(X, y, data, y_data,
                                                      self.ACPI.features,
                                                      self.ACPI.thresholds,
                                                      self.ACPI.children_left,
@@ -935,7 +935,7 @@ class ACPI:
             times data[j] falls in the same leaves as X[i] using data+X[i] as background data. w[-1, i] is the weights
             associate to X[i].
         """
-        w = cyext_acv.compute_forest_weights_cali_verbose(X, data, y_data,
+        w = cyext_acpi.compute_forest_weights_cali_verbose(X, data, y_data,
                                                           self.ACPI.features,
                                                           self.ACPI.thresholds,
                                                           self.ACPI.children_left,

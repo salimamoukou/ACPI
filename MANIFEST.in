@@ -1,1 +1,1 @@
-include acpi/cyext_acv/*.pyx
+include acpi/cyext_acpi/*.pyx

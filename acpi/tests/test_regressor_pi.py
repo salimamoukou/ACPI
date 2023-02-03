@@ -45,11 +45,11 @@ def test_prediction_pi_qrf():
     reg.fit(x_train[idx_train], y_train[idx_train])
 
     # Fit ACPI
-    acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10,
-               seed=random_state, estimator='ref')
+    acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10, seed=random_state,
+               estimator='ref')
 
     level = 1 - alpha
-    acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=10)
+    acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=50)
     y_lower, y_upper = acp.predict_qrf_pi(x_test)
 
     coverage = compute_coverage(y_test, y_lower, y_upper)
@@ -95,15 +95,15 @@ def test_prediction_pi_all():
     reg.fit(x_train[idx_train], y_train[idx_train])
 
     # Fit ACPI
-    acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10,
-               seed=random_state, estimator='reg')
+    acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10, seed=random_state,
+               estimator='reg')
 
     level = 1 - alpha
     acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, training_conditional=True,
                     training_conditional_one=True,
                     bygroup=True,
                     only_qrf=False,
-                    n_iter_qrf=10)
+                    n_iter_qrf=50)
 
     y_lower_qrf, y_upper_qrf = acp.predict_pi(x_test, method='qrf')
     y_lower_lcprf, y_upper_lcprf = acp.predict_pi(x_test, method='lcp-rf')

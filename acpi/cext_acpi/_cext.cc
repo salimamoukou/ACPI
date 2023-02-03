@@ -2,7 +2,7 @@
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
-#include "acv_tree.h"
+#include "acpi_tree.h"
 #include <iostream>
 
 //static PyObject *_cext_multi_game_sv(PyObject *self, PyObject *args);
@@ -10,7 +10,7 @@
 //static PyObject *_cext_cond_sdp_tree(PyObject *self, PyObject *args);
 //static PyObject *_cext_swing_sdp_tree(PyObject *self, PyObject *args);
 //static PyObject *_cext_tree_sv(PyObject *self, PyObject *args);
-//static PyObject *_cext_tree_sv_acv(PyObject *self, PyObject *args);
+//static PyObject *_cext_tree_sv_acpi(PyObject *self, PyObject *args);
 //static PyObject *_cext_local_sdp(PyObject *self, PyObject *args);
 //static PyObject *_cext_global_sdp(PyObject *self, PyObject *args);
 static PyObject *_cext_dense_tree_predict(PyObject *self, PyObject *args);
@@ -25,7 +25,7 @@ static PyMethodDef module_methods[] = {
 //    {"cond_sdp_tree", _cext_cond_sdp_tree, METH_VARARGS, "C implementation of tree SDP compuatations."},
 //    {"swing_sdp_tree", _cext_swing_sdp_tree, METH_VARARGS, "C implementation of Swing Shapley values."},
 //    {"tree_sv", _cext_tree_sv, METH_VARARGS, "C implementation of Tree SV given any value function."},
-//    {"tree_sv_acv", _cext_tree_sv_acv, METH_VARARGS, "C implementation of Tree Active SV given any value function."},
+//    {"tree_sv_acpi", _cext_tree_sv_acpi, METH_VARARGS, "C implementation of Tree Active SV given any value function."},
 //    {"local_sdp", _cext_local_sdp, METH_VARARGS, "C implementation of the algorithm that find S_STAR."},
 //    {"global_sdp", _cext_global_sdp, METH_VARARGS, "C implementation of tree Global SV"},
     {"dense_tree_predict", _cext_dense_tree_predict, METH_VARARGS, "C implementation of trees predictions."},
@@ -38,8 +38,8 @@ static PyMethodDef module_methods[] = {
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "cext_acv",
-    "ACV function optimized in C !",
+    "cext_acpi",
+    "acpi function optimized in C !",
     -1,
     module_methods,
     NULL,
@@ -50,16 +50,16 @@ static struct PyModuleDef moduledef = {
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit_cext_acv(void)
+PyMODINIT_FUNC PyInit_cext_acpi(void)
 #else
-PyMODINIT_FUNC init_cext_acv(void)
+PyMODINIT_FUNC init_cext_acpi(void)
 #endif
 {
     #if PY_MAJOR_VERSION >= 3
         PyObject *module = PyModule_Create(&moduledef);
         if (!module) return NULL;
     #else
-        PyObject *module = Py_InitModule("cext_acv", module_methods);
+        PyObject *module = Py_InitModule("cext_acpi", module_methods);
         if (!module) return;
     #endif
 

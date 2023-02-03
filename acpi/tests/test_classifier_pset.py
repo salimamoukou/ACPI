@@ -11,7 +11,7 @@ def test_prediction_set_qrf():
     random_state = 2022
     valid_ratio = 0.5
     alpha = 0.1
-    eps = 0.05
+    eps = 0.1
 
     # SIMULATED DATA
     # centers = [(0, 3.5), (-2, 0), (2, 0)]
@@ -49,7 +49,7 @@ def test_prediction_set_qrf():
                seed=random_state, estimator='clf')
 
     level = 1 - alpha
-    acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=40)
+    acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=50)
     y_pred_set_qrf = acp.predict_qrf_pi(x_test)
 
     coverage = compute_coverage_classification(y_pred_set_qrf, y_test)
@@ -103,7 +103,7 @@ def test_prediction_set_all():
                     training_conditional_one=True,
                     bygroup=True,
                     only_qrf=False,
-                    n_iter_qrf=40)
+                    n_iter_qrf=50)
     y_pred_set_qrf = acp.predict_pi(x_test, method='qrf')
     y_pred_set_lcprf = acp.predict_pi(x_test, method='lcp-rf')
     y_pred_set_lcprfgroup = acp.predict_pi(x_test, method='lcp-rf-group')

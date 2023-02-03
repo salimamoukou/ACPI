@@ -121,7 +121,7 @@ struct ExplanationDataset {
 //
 //inline void multi_game_sv(tfloat *out_contribs, const TreeEnsemble& trees, const ExplanationDataset &data) {}
 //
-//inline void multi_game_sv_acv(tfloat *out_contribs, const TreeEnsemble& trees, const ExplanationDataset &data) {}
+//inline void multi_game_sv_acpi(tfloat *out_contribs, const TreeEnsemble& trees, const ExplanationDataset &data) {}
 //
 //inline void cond_exp_tree(tfloat *out_contribs, const tfloat *x,  const int *S, const TreeEnsemble& trees, const ExplanationDataset &data) {}
 //
