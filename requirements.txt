@@ -1,0 +1,9 @@
+scipy
+tqdm
+Cython
+numpy < 1.22
+scikit-learn
+pandas
+pytest
+skranger
+pybind11
