@@ -1,9 +1,9 @@
-## Adaptive Conformal Prediction Intervals (ACPI) By Reweighting Nonconfirmity Score
+## Adaptive Conformal Prediction Intervals (ACPI)
 
-*Adaptive Conformal Prediction Intervals*  is a Python package that aims to provide 
-Adaptive Predictive Intervals (PI) that better represent the uncertainty of the 
-model by reweighting the nonconformal score with the learned weights of a Random Forest.
- 
+**ACPI** offers Adaptive Predictive Intervals (PI) that accurately reflect the
+ uncertainty of a given model, with finite-sample marginal and training-conditional coverage, 
+ as well as asymptotic conditional coverage.  It has been proven to significantly improve upon the split-conformal 
+ approach, regardless of the nonconformity score used (mean regression, quantile regression, etc.).
 ## Requirements
 Python 3.7+ 
 
@@ -26,47 +26,68 @@ Clone the repo and run the following command in the ACPI directory to install AC
 ```
 $ pip install .
 ```
-To make an all-in-one installation of all the setup for ACPI, you can run the bash script: install.sh
+To make an all-in-one installation, you can run the bash script: install.sh
 ```
 $ bash install.sh
 ```
 
-## Adaptive Conformal Prediction Intervals (ACPI)
-We propose 3 methods to compute PI: LCP-RF , LCP-RF-G, and QRF-TC. However, by default
-we use QRF-TC as it is as accurate than the others while being more fast. The code of
-LCP-RF and LCP-RF-G is not optimized yet.
+## Quickstart
+We propose 3 methods to compute PI: **LCP-RF** , **LCP-RF-G**, and **QRF-TC**. However, **QRF-TC** is used by default as
+it provides the same level of accuracy as the other methods, but is faster. The implementation of LCP-RF and LCP-RF-G 
+is not yet optimized.
 
 
-**I. To compute PI using QRF-TC. First, we need to define ACPI which has the same 
-parameters as a classic RandomForest, so its parameters should be optimized to predict accurately the nonconformity scores of the calibration set.**
+- Assume we have trained a mean estimator (XGBRegressor) on the diabetes dataset.
 ```python
+from xgboost import XGBRegressor
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+calibration_ratio = 0.5
+test_ratio = 0.25
+
+sklearn_data = load_diabetes()
+X, y = sklearn_data.data, sklearn_data.target
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=2023)
+x_train, x_cal, y_train, y_cal = train_test_split(x_train, y_train, test_size=calibration_ratio, random_state=2023)
+
+model = XGBRegressor()
+model.fit(x_train, y_train)
+```
+- To compute Predictive Intervals using **QRF-TC**. First, we need to define **ACPI** which has the same 
+parameters as a classic RandomForest. The parameters of ACPI should be optimized to accurately predict the nonconformity scores of the calibration set.
+```python
+from sklearn.metrics import mean_absolute_error
 from acpi import ACPI
 
 # It has the same params as a Random Forest, and it should be tuned to maximize the performance.  
-acp = ACPI(model_cali=model, n_estimators=100, max_depth=20, min_node_size=10)
+acpi = ACPI(model_cali=model, n_estimators=100, max_depth=20, min_node_size=10)
 
-acp.fit(x_calibration, y_calibration)
+acpi.fit(x_cal, y_cal, nonconformity_func=None)
+# You can use custom nonconformity score by using the argument 'nonconformity_func'. 
+# It takes a callable[[ndarray, ndarray], ndarray] that return the nonconformity 
+# score given (predictions, y_true). By the default, it uses absolute residual if model 
+# is mean estimator and max(pred_lower - y, y - pred_upper) if the model is quantile estimates.
 
-v_calibration = acp.nonconformity_score(model.predict(x_calibration), y_calibration) 
+v_cal = acpi.nonconformity_score(model.predict(x_cal), y_cal) 
 
 # Optimize the RF to predict the nonconformity score
-mae = mean_absolute_error(acp.predict(x_calibration), v_calibration)
+mae = mean_absolute_error(acpi.predict(x_cal), v_cal)
 ```
 
-**II. Then, we call the calibration method to run the training-conditional calibration.**
+- Then, we call the calibration method to run the training-conditional calibration.
 
 ```python 
-acp.fit_calibration(x_calibration, y_calibration, nonconformity_func=None, quantile=1-alpha, only_qrf=True)
+alpha = 0.1
+acpi.fit_calibration(x_cal, y_cal, nonconformity_func=None, quantile=1-alpha, only_qrf=True)
 ```
-You can use custom nonconformity score by using the argument 'nonconformity_func'. It takes a callable[[ndarray, ndarray], ndarray] that
-return the nonconformity score given (predictions, y_true).
 
-**II. Now, you can compute the Prediction Intervals**
+- You can compute the Prediction Intervals as follows.
 ```python 
-# You can compute the prediction intervals using the code below
-y_lower, y_upper = acp.predict_pi(x_test, method='qrf')
-# Or the prediction sets
-y_pred_set = acp.predict_pi(x_test, method='qrf')
+y_lower, y_upper = acpi.predict_pi(x_test, method='qrf')
+
+# Or the prediction sets if model is a classifier (NOT TESTED YET)
+# y_pred_set = acpi.predict_pi(x_test, method='qrf')
 ```
 
 ## Notebooks

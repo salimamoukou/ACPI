@@ -214,12 +214,16 @@ class ACPI:
         if self.estimator == 'clf':
             pred_cali_proba = self.model_cali.predict_proba(X)
             r_fit = classifier_score(pred_cali_proba, y)
+            self.nonconformity_score = classifier_score
         elif nonconformity_func is not None:
             r_fit = nonconformity_func(predictions, y)
+            self.nonconformity_score = nonconformity_func
         elif predictions.ndim > 1:
             r_fit = quantile_score(predictions, y)
+            self.nonconformity_score = quantile_score
         else:
             r_fit = mean_score(predictions, y)
+            self.nonconformity_score = mean_score
 
         self.d = X.shape[1]
         self.model.fit(X=X, y=r_fit, sample_weight=sample_weight, split_select_weights=split_select_weights,

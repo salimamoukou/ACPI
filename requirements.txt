@@ -7,3 +7,4 @@ pandas
 pytest
 skranger
 pybind11
+mapie
