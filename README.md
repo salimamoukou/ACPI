@@ -162,4 +162,3 @@ plt.show()
 The notebook below show how to you use ACPI for quantile regression and mean regression.
 - HOW_TO_ACPI.ipynb
 
-## Improvement over split-conformal approaches

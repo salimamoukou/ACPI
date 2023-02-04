@@ -13,7 +13,7 @@ except ImportError:
     from urllib import urlretrieve
 
 
-base_path = "https://github.com/salimamoukou/ACPI/tree/main/datasets/"
+base_path = "https://github.com/salimamoukou/ACPI/tree/main/acpi/datasets/"
 
 class simulation:
     """ Functions for generating 1 dimensional simulation
