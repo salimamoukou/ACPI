@@ -3,16 +3,17 @@ import numpy as np
 from scipy.stats import beta
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import os
-import sys
-import pdb
 import scipy.stats as st
 import os
+from . import config
+
 try:
     from urllib.request import urlretrieve
 except ImportError:
     from urllib import urlretrieve
 
+
+base_path = "https://github.com/salimamoukou/ACPI/tree/main/datasets/"
 
 class simulation:
     """ Functions for generating 1 dimensional simulation
@@ -86,7 +87,8 @@ def px_model(size, **kwargs):
     if 'a' in kwargs:
         a = kwargs.pop('a')
         b = kwargs.pop('b')
-        return config.DataParams.left_interval + (config.DataParams.right_interval - config.DataParams.left_interval) * np.expand_dims(beta.rvs(a, b, size=size), 1)
+        return config.DataParams.left_interval + (
+                    config.DataParams.right_interval - config.DataParams.left_interval) * np.expand_dims(beta.rvs(a, b, size=size), 1)
     return config.DataParams.left_interval + (config.DataParams.right_interval - config.DataParams.left_interval) * np.random.rand(size, 1)
 
 
@@ -101,7 +103,7 @@ def sigma_model(x):
     return (x_abs / (x_abs + 1)).reshape(-1)
 
 
-def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
+def GetDataset(name, seed, test_ratio, a=1., b=1.):
 
     if 'simulation' in name:
         x_train = np.random.uniform(0, 5.0, size=config.DataParams.n_train).astype(np.float32)
@@ -127,7 +129,7 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         x_test, y_test = data_model.generate(config.DataParams.n_test, a=a, b=b)
 
     if name=="meps_19":
-        df = pd.read_csv(base_path + 'meps_19_reg.csv')
+        df = pd.read_csv(cache(base_path + 'meps_19_reg.csv'))
         column_names = df.columns
         response_name = "UTILIZATION_reg"
         column_names = column_names[column_names!=response_name]
@@ -166,7 +168,7 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
         
     if name=="meps_20":
-        df = pd.read_csv(base_path + 'meps_20_reg.csv')
+        df = pd.read_csv(cache(base_path + 'meps_20_reg.csv'))
         column_names = df.columns
         response_name = "UTILIZATION_reg"
         column_names = column_names[column_names!=response_name]
@@ -205,7 +207,7 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
     if name=="meps_21":
-        df = pd.read_csv(base_path + 'meps_21_reg.csv')
+        df = pd.read_csv(cache(base_path + 'meps_21_reg.csv'))
         column_names = df.columns
         response_name = "UTILIZATION_reg"
         column_names = column_names[column_names!=response_name]
@@ -244,7 +246,7 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
     if name=="star":
-        df = pd.read_csv(base_path + 'STAR.csv')
+        df = pd.read_csv(cache(base_path + 'STAR.csv'))
         df.loc[df['gender'] == 'female', 'gender'] = 0
         df.loc[df['gender'] == 'male', 'gender'] = 1
         
@@ -382,36 +384,17 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         y = grade.values
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
-    if name=="facebook_1":
-        df = pd.read_csv(base_path + 'facebook/Features_Variant_1.csv')        
-        y = df.iloc[:,53].values
-        X = df.iloc[:,0:53].values        
-        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
-
-    if name=="facebook_2":
-        df = pd.read_csv(base_path + 'facebook/Features_Variant_2.csv')        
-        y = df.iloc[:,53].values
-        X = df.iloc[:,0:53].values 
-        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
-
     if name=="bio":
         #https://github.com/joefavergel/TertiaryPhysicochemicalProperties/blob/master/RMSD-ProteinTertiaryStructures.ipynb
-        df = pd.read_csv(base_path + 'CASP.csv')       
+        df = pd.read_csv(cache(base_path + 'CASP.csv'))
         df.fillna(0, inplace=True) 
         y = df.iloc[:,0].values
         X = df.iloc[:,1:].values        
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
-    if name=='blog_data':
-        # https://github.com/xinbinhuang/feature-selection_blogfeedback
-        df = pd.read_csv(base_path + 'blogData_train.csv', header=None)
-        X = df.iloc[:,0:280].values
-        y = df.iloc[:,-1].values
-        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
-
     if name=="bike":
         # https://www.kaggle.com/rajmehra03/bike-sharing-demand-rmsle-0-3194
-        df=pd.read_csv(base_path + 'bike_train.csv')
+        df=pd.read_csv(cache(base_path + 'bike_train.csv'))
         
         # # seperating season as per values. this is bcoz this will enhance features.
         season=pd.get_dummies(df['season'],prefix='season')
@@ -439,15 +422,15 @@ def GetDataset(name, base_path, seed, test_ratio, a=1., b=1.):
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
     if name == "concrete":
-        dataset = np.loadtxt(open(base_path + 'Concrete_Data.csv', "rb"), delimiter=",", skiprows=1)
+        dataset = np.loadtxt(open(cache(base_path + 'Concrete_Data.csv', "rb")), delimiter=",", skiprows=1)
         X = dataset[:, :-1]
         y = dataset[:, -1:]
         x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed)
 
     if name == "community":
         # https://github.com/vbordalo/Communities-Crime/blob/master/Crime_v1.ipynb
-        attrib = pd.read_csv(base_path + 'communities_attributes.csv', delim_whitespace = True)
-        data = pd.read_csv(base_path + 'communities.data', names = attrib['attributes'])
+        attrib = pd.read_csv(cache(base_path + 'communities_attributes.csv', delim_whitespace = True))
+        data = pd.read_csv(cache(base_path + 'communities.data', names = attrib['attributes']))
         data = data.drop(columns=['state','county', 'community','communityname', 'fold'], axis=1)
         data = data.replace('?', np.nan)
         

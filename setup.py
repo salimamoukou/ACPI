@@ -29,7 +29,7 @@ setup(name='ACPI',
       setup_requires=["setuptools", "wheel", "numpy<1.22", "Cython", "pybind11"],
       install_requires=['numpy<1.22', 'scipy', 'scikit-learn', 'pandas', 'tqdm', 'skranger', 'pybind11', 'PyGenStability@git+https://github.com/barahona-research-group/PyGenStability.git'],
       extras_require={'test': ['xgboost', 'lightgbm', 'catboost', 'pyspark', 'pytest']},
-      packages=['acpi'],
+      packages=['acpi', 'acpi.datasets'],
       license='MIT',
       zip_safe=False
       )
