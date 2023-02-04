@@ -1,3 +1,4 @@
+![build and test](https://github.com/salimamoukou/ACPI/actions/workflows/build_test.yml/badge.svg)
 ## Adaptive Conformal Prediction Intervals (ACPI)
 
 **ACPI** offers Adaptive Predictive Intervals (PI) that accurately reflect the
