@@ -32,12 +32,21 @@ $ bash install.sh
 ```
 
 ## Quickstart
-We propose 3 methods to compute PI: **LCP-RF** , **LCP-RF-G**, and **QRF-TC**. However, **QRF-TC** is used by default as
-it provides the same level of accuracy as the other methods, but is faster. The implementation of LCP-RF and LCP-RF-G 
-is not yet optimized.
+We propose 3 methods to compute PI: **LCP-RF** , **LCP-RF-G**, and **QRF-TC**.
+- **LCP-RF**: Localized Random Forest. It used the learned weights of the RF to give more importance to calibration 
+samples that have residuals similar to the test points in the calibration step.
+
+- **LCP-RF-G**: Groupwise Localized Random Forest. It extend the previous approach by conformalizing by group. The groups
+are computed using the weights of the forest that permit to find cluster/partition of the space with similar residuals. 
+It results in more efficient and more adaptive Predictive Intervals.
+
+- **QRF-TC**: It directly calibrates the Random Forest Localizer to achieves training-conditional coverage.
+ 
+We used **QRF-TC** by default as it provides the same level of accuracy as the other methods, but is faster. 
+ The implementation of LCP-RF and LCP-RF-G is not yet optimized.
 
 
-- Assume we have trained a mean estimator (XGBRegressor) on the diabetes dataset.
+- **Assume we have trained a mean estimator (XGBRegressor) on the diabetes dataset.**
 ```python
 from xgboost import XGBRegressor
 from sklearn.datasets import load_diabetes
@@ -54,8 +63,9 @@ x_train, x_cal, y_train, y_cal = train_test_split(x_train, y_train, test_size=ca
 model = XGBRegressor()
 model.fit(x_train, y_train)
 ```
-- To compute Predictive Intervals using **QRF-TC**. First, we need to define **ACPI** which has the same 
-parameters as a classic RandomForest. The parameters of ACPI should be optimized to accurately predict the nonconformity scores of the calibration set.
+- **To compute Predictive Intervals using **QRF-TC**. First, we need to define **ACPI** which has the same 
+parameters as a classic RandomForest. The parameters of ACPI should be optimized to accurately predict the nonconformity 
+scores of the calibration set.**
 ```python
 from sklearn.metrics import mean_absolute_error
 from acpi import ACPI
@@ -75,22 +85,23 @@ v_cal = acpi.nonconformity_score(model.predict(x_cal), y_cal)
 mae = mean_absolute_error(acpi.predict(x_cal), v_cal)
 ```
 
-- Then, we call the calibration method to run the training-conditional calibration.
+- **Then, we call the calibration method to run the training-conditional calibration.**
 
 ```python 
 alpha = 0.1
 acpi.fit_calibration(x_cal, y_cal, nonconformity_func=None, quantile=1-alpha, only_qrf=True)
 ```
 
-- You can compute the Prediction Intervals as follows.
+- **You can compute the Prediction Intervals as follows.**
 ```python 
 y_lower, y_upper = acpi.predict_pi(x_test, method='qrf')
 
 # Or the prediction sets if model is a classifier (NOT TESTED YET)
 # y_pred_set = acpi.predict_pi(x_test, method='qrf')
 ```
-
 ## Notebooks
 
 The notebook below show how to you use ACPI in practice.
 - HOW_TO_ACPI.ipynb
+
+## Improvement over split-conformal approaches
