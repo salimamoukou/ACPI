@@ -99,7 +99,7 @@ y_lower, y_upper = acpi.predict_pi(x_test, method='qrf')
 # y_pred_set = acpi.predict_pi(x_test, method='qrf')
 ```
 
-### Improvements over split-CP
+## Improvements over split-CP
 - For the sake of demonstration, we compare the intervals width given by our methods with split-CP in the previous 
 datasets. We used the library MAPIE to compute split-CP PI.
 ```python 
@@ -155,7 +155,7 @@ ax[2].legend()
 plt.suptitle('Intervals width comparisons between SPLIT, QRF-TC, and the True error ', size=20)
 plt.show()
 ```
-
+![width comparisons](https://github.com/salimamoukou/ACPI/blob/main/acpi/datasets/intervals_comparisons.png)
 
 ## Notebooks
 
