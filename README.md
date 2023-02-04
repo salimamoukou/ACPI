@@ -34,29 +34,27 @@ $ bash install.sh
 
 ## Quickstart
 We propose 3 methods to compute PI: **LCP-RF** , **LCP-RF-G**, and **QRF-TC**.
-- **LCP-RF**: Localized Random Forest. It used the learned weights of the RF to give more importance to calibration 
+- **LCP-RF**: Random Forest Localizer. It used the learned weights of the RF to give more importance to calibration 
 samples that have residuals similar to the test points in the calibration step.
 
-- **LCP-RF-G**: Groupwise Localized Random Forest. It extend the previous approach by conformalizing by group. The groups
-are computed using the weights of the forest that permit to find cluster/partition of the space with similar residuals. 
-It results in more efficient and more adaptive Predictive Intervals.
+- **LCP-RF-G**: Groupwise-Random Forest Localizer. It extends the previous approach by conformalizing by group. The groups
+are computed using the weights of the forest that permits to find cluster/partition of the space with similar residuals.
+Hence, allowing more efficient and more adaptive Predictive Intervals.
 
-- **QRF-TC**: It directly calibrates the Random Forest Localizer to achieves training-conditional coverage.
+- **QRF-TC**: It directly calibrates the Random Forest Localizer to achieve training-conditional coverage.
  
-We used **QRF-TC** by default as it provides the same level of accuracy as the other methods, but is faster. 
- The implementation of LCP-RF and LCP-RF-G is not yet optimized.
+**Remarks**. We used **QRF-TC** by default as it provides the same level of accuracy as the other methods, but is faster. 
 
-
-- **Assume we have trained a mean estimator (XGBRegressor) on the diabetes dataset.**
+- **Assume we have trained a mean estimator (XGBRegressor) on the california house prices dataset.**
 ```python
 from xgboost import XGBRegressor
-from sklearn.datasets import load_diabetes
+from sklearn.datasets import load_diabetes, fetch_california_housing
 from sklearn.model_selection import train_test_split
 
 calibration_ratio = 0.5
 test_ratio = 0.25
 
-sklearn_data = load_diabetes()
+sklearn_data = fetch_california_housing()
 X, y = sklearn_data.data, sklearn_data.target
 x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=2023)
 x_train, x_cal, y_train, y_cal = train_test_split(x_train, y_train, test_size=calibration_ratio, random_state=2023)
@@ -100,9 +98,68 @@ y_lower, y_upper = acpi.predict_pi(x_test, method='qrf')
 # Or the prediction sets if model is a classifier (NOT TESTED YET)
 # y_pred_set = acpi.predict_pi(x_test, method='qrf')
 ```
+
+### Improvements over split-CP
+- For the sake of demonstration, we compare the intervals width given by our methods with split-CP in the previous 
+datasets. We used the library MAPIE to compute split-CP PI.
+```python 
+from mapie.regression import MapieRegressor
+
+mapie = MapieRegressor(model, method='base', cv='prefit')
+mapie.fit(x_cal, y_cal)
+y_test_pred, y_test_pis = mapie.predict(x_test, alpha=alpha)
+```
+- Below, we plot the interval width of split-CP, QRF-TC and the true errors of the model. It shows that our methods
+given varied interval (second figure) while split-CP PI are constant. The figure 1 and 3 shows that our PI
+are more aligned with the true errors of the model.
+```python 
+idx = list(range(len(y_test)))
+sort_id = np.argsort(y_test)
+max_size = 500
+
+y_lower_true = model.predict(x_test) - np.abs(model.predict(x_test) - y_test)
+y_upper_true = model.predict(x_test) + np.abs(model.predict(x_test) - y_test)
+r = {}
+r['QRF_TC'] = y_upper - y_lower
+r['True'] = y_upper_true - y_lower_true
+r['SPLIT'] = y_test_pis[:, 1, 0] - y_test_pis[:, 0, 0]
+
+fig, ax = plt.subplots(1, 3, figsize=(20, 6))
+
+ax[0].errorbar(idx[:max_size], y_test[sort_id][:max_size], yerr=r['SPLIT'][sort_id][:max_size], fmt='o', label='SPLIT', color='tab:orange')
+ax[0].errorbar(idx[:max_size], y_test[sort_id][:max_size], yerr=r['QRF_TC'][sort_id][:max_size], fmt='o', label='QRF_TC', color='tab:blue')
+ax[0].errorbar(idx[:max_size], y_test[sort_id][:max_size], yerr=r['True'][sort_id][:max_size], fmt='o', label='True errors', color='tab:green')
+ax[0].set_ylabel('Interval width')
+ax[0].set_xlabel('Order of True values')
+ax[0].legend()
+
+ax[1].scatter(y_test, r['QRF_TC'], label='QRF_TC')
+ax[1].scatter(y_test, r['SPLIT'], label='SPLIT')
+ax[1].set_xlabel("True values", fontsize=12)
+ax[1].set_ylabel("Interval width", fontsize=12)
+ax[1].set_xscale("linear")
+ax[1].set_ylim([0, np.max(r['QRF_TC'])*1.1])
+ax[1].legend()
+
+
+
+ax[2].scatter(y_test, r['True'], label='True errors', color='tab:green')
+ax[2].scatter(y_test, r['QRF_TC'], label='QRF_TC', color='tab:blue')
+ax[2].scatter(y_test, r['SPLIT'], label='SPLIT', color='tab:orange')
+ax[2].set_xlabel("True values", fontsize=12)
+ax[2].set_ylabel("Interval width", fontsize=12)
+ax[2].set_xscale("linear")
+ax[2].set_ylim([0, np.max(r['QRF_TC'])*1.1])
+ax[2].legend()
+
+plt.suptitle('Intervals width comparisons between SPLIT, QRF-TC, and the True error ', size=20)
+plt.show()
+```
+
+
 ## Notebooks
 
-The notebook below show how to you use ACPI in practice.
+The notebook below show how to you use ACPI for quantile regression and mean regression.
 - HOW_TO_ACPI.ipynb
 
 ## Improvement over split-conformal approaches
