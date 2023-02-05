@@ -156,6 +156,6 @@ plt.show()
 
 ## Notebooks
 
-The notebook below show how to you use ACPI for quantile regression and mean regression.
-- HOW_TO_ACPI.ipynb
+The notebook below show how to you use ACPI for mean regression and quantile regression.
+- [how_to_acpi.ipynb](https://github.com/salimamoukou/ACPI/tree/main/notebooks/how_to_acpi.ipynb)
 
