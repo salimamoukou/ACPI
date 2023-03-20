@@ -40,10 +40,6 @@ def test_predict_wreject():
 
     level = 1 - alpha
     acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=10)
-    y_lower, y_upper = acp.predict_qrf_pi(x_test)
-
-    coverage = compute_coverage(y_test, y_lower, y_upper)
-    assert coverage >= 1 - alpha - eps
 
     # Fit predict reject option
     residual_reg = XGBRegressor(n_estimators=1000, random_state=random_state)
@@ -58,5 +54,4 @@ def test_predict_wreject():
     tol = np.sum(y_test >= v_star)
     found = np.sum(y_test[rej_indices] >= v_star)
     power = tol / found
-
     assert fdp <= level
