@@ -1,6 +1,7 @@
 import numpy as np
 import cyext_acpi
 from skranger.ensemble import RangerForestRegressor
+from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted, check_X_y, column_or_1d, check_array, as_float_array, \
     check_consistent_length
 from scipy.sparse import csr_matrix
@@ -926,7 +927,9 @@ class ACPI:
             x_cali = self.x_cali
             r_cali = self.r_cali
 
-        if not self.model_reject.__sklearn_is_fitted__():
+        try:
+            check_is_fitted(self.model_reject)
+        except NotFittedError:
             if split:
                 self.model_reject.fit(x_cali, r_cali)
             else:

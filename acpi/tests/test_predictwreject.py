@@ -2,9 +2,9 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import load_diabetes, make_regression
 from sklearn.model_selection import train_test_split
+from skranger.ensemble import RangerForestRegressor
 from acpi import ACPI
 from acpi.utils import mean_score, quantile_score, compute_coverage
-from xgboost import XGBRegressor
 
 
 def test_predict_wreject():
@@ -42,7 +42,7 @@ def test_predict_wreject():
     acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=10)
 
     # Fit predict reject option
-    residual_reg = XGBRegressor(n_estimators=1000, random_state=random_state)
+    residual_reg = RangerForestRegressor()
     acp.fit_reject(residual_reg, split=False)
 
     level_fdp = 0.2

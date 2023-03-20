@@ -16,7 +16,7 @@ long_description = (this_directory/"README.md").read_text()
 setup(name='ACPI',
       author='Salim I. Amoukou',
       author_email='salim.ibrahim-amoukou@universite-paris-saclay.fr',
-      version='0.0.0',
+      version='0.0.1',
       description='Adaptive Conformal Prediction (ACP) is a Python package that aims to provide Adaptive Predictive '
                   'Interval (PI) that better represent the uncertainty of the model by reweighting the NonConformal '
                   'Score with the learned weights of a Random Forest.',
