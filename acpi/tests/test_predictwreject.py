@@ -5,60 +5,58 @@ from sklearn.model_selection import train_test_split
 from acpi import ACPI
 from acpi.utils import mean_score, quantile_score, compute_coverage
 from xgboost import XGBRegressor
-import seaborn as sns
-import matplotlib.pyplot as plt
 
-# Parameters
-random_state = 2022
-valid_ratio = 0.5
-alpha = 0.1
-eps = 0.1
 
-# UCI datasets
-sklearn_data = load_diabetes()
-X, y = sklearn_data.data, sklearn_data.target
-# X, y = make_regression(n_samples=1000, n_features=10, noise=0.05, random_state=42)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
+def test_predict_wreject():
+    # Parameters
+    random_state = 2022
+    valid_ratio = 0.5
+    alpha = 0.1
+    eps = 0.1
 
-x_train, x_test = X_train.astype(np.double), X_test.astype(np.double)
-y_train, y_test = np.asarray(y_train).astype(np.double).reshape(-1), np.asarray(y_test).astype(np.double).reshape(-1)
+    # UCI datasets
+    sklearn_data = load_diabetes()
+    X, y = sklearn_data.data, sklearn_data.target
+    # X, y = make_regression(n_samples=1000, n_features=10, noise=0.05, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
 
-in_shape = x_train.shape[1]
-n_train = x_train.shape[0]
-idx = np.random.permutation(n_train)
-n_half = int(np.floor(n_train * valid_ratio))
-idx_train, idx_cal = idx[:n_half], idx[n_half:]
+    x_train, x_test = X_train.astype(np.double), X_test.astype(np.double)
+    y_train, y_test = np.asarray(y_train).astype(np.double).reshape(-1), np.asarray(y_test).astype(np.double).reshape(
+        -1)
 
-# Fit classifier
-reg = RandomForestRegressor(random_state=random_state)
-reg.fit(x_train[idx_train], y_train[idx_train])
+    in_shape = x_train.shape[1]
+    n_train = x_train.shape[0]
+    idx = np.random.permutation(n_train)
+    n_half = int(np.floor(n_train * valid_ratio))
+    idx_train, idx_cal = idx[:n_half], idx[n_half:]
 
-# Fit ACPI
-acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10, seed=random_state,
-           estimator='ref')
+    # Fit classifier
+    reg = RandomForestRegressor(random_state=random_state)
+    reg.fit(x_train[idx_train], y_train[idx_train])
 
-level = 1 - alpha
-acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=10)
-y_lower, y_upper = acp.predict_qrf_pi(x_test)
+    # Fit ACPI
+    acp = ACPI(model_cali=reg, n_estimators=300, mtry=0, max_depth=20, min_node_size=10, seed=random_state,
+               estimator='ref')
 
-coverage = compute_coverage(y_test, y_lower, y_upper)
-assert coverage >= 1 - alpha - eps
+    level = 1 - alpha
+    acp.fit_calibration(x_train[idx_cal], y_train[idx_cal], quantile=level, only_qrf=True, n_iter_qrf=10)
+    y_lower, y_upper = acp.predict_qrf_pi(x_test)
 
-# Fit predict reject option
-residual_reg = XGBRegressor(n_estimators=1000, random_state=random_state)
-acp.fit_reject(residual_reg, split=False)
+    coverage = compute_coverage(y_test, y_lower, y_upper)
+    assert coverage >= 1 - alpha - eps
 
-v_test = acp.nonconformity_score(reg.predict(x_test), y_test)
-v_test_pred = residual_reg.predict(x_test)
+    # Fit predict reject option
+    residual_reg = XGBRegressor(n_estimators=1000, random_state=random_state)
+    acp.fit_reject(residual_reg, split=False)
 
-level_fdp = 0.2
-delta_fdp = 0.1
-v_star = 50
-rej_indices = acp.predict_wreject(x_test, v_star=v_star, method='marginal', level=level_fdp, delta=delta_fdp)
+    level_fdp = 0.2
+    delta_fdp = 0.1
+    v_star = 50
+    rej_indices = acp.predict_wreject(x_test, v_star=v_star, method='marginal', level=level_fdp, delta=delta_fdp)
 
-fdp = np.mean(y_test[rej_indices] <= v_star)
-tol = np.sum(y_test >= v_star)
-found = np.sum(y_test[rej_indices] >= v_star)
-power = tol/found
+    fdp = np.mean(y_test[rej_indices] <= v_star)
+    tol = np.sum(y_test >= v_star)
+    found = np.sum(y_test[rej_indices] >= v_star)
+    power = tol / found
 
-assert fdp <= level
+    assert fdp <= level
