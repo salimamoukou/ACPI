@@ -1,6 +1,3 @@
-from .base_forest import *
-from .utils import classifier_score, quantile_score, mean_score, compute_coverage, compute_coverage_classification, \
-    get_values_greater_than
 import numpy as np
 import cyext_acpi
 from skranger.ensemble import RangerForestRegressor
@@ -10,7 +7,15 @@ from scipy.sparse import csr_matrix
 import scipy.sparse as sp
 import pygenstability
 from tqdm import tqdm
+import logging
+from .base_forest import *
+from .utils import classifier_score, quantile_score, mean_score, compute_coverage, compute_coverage_classification, \
+    get_values_greater_than, prediction_wreject, compute_pi, check_is_qrf_calibration, check_is_calibrate, \
+    check_is_training_conditional, check_is_training_conditional_one, check_is_calibrate_bygroup, \
+    check_is_training_conditional_bygroup, check_is_reject_fitted
 
+global logger
+logger = logging.getLogger('acpi')
 
 class ACPI:
     def __init__(
@@ -142,6 +147,8 @@ class ACPI:
         self.pred_cali_proba = None
         self.pred_cali_proba_train = None
         self.quantile = None
+        self.model_reject = None
+        self.check_is_reject_fitted = False
 
         self.model = RangerForestRegressor(n_estimators=self.n_estimators,
                                            verbose=self.verbose,
@@ -211,13 +218,13 @@ class ACPI:
         X, y = check_X_y(X, y, dtype=np.double)
         predictions = self.model_cali.predict(X)
 
-        if self.estimator == 'clf':
+        if nonconformity_func is not None:
+            r_fit = nonconformity_func(predictions, y)
+            self.nonconformity_score = nonconformity_func
+        elif self.estimator == 'clf':
             pred_cali_proba = self.model_cali.predict_proba(X)
             r_fit = classifier_score(pred_cali_proba, y)
             self.nonconformity_score = classifier_score
-        elif nonconformity_func is not None:
-            r_fit = nonconformity_func(predictions, y)
-            self.nonconformity_score = nonconformity_func
         elif predictions.ndim > 1:
             r_fit = quantile_score(predictions, y)
             self.nonconformity_score = quantile_score
@@ -303,13 +310,13 @@ class ACPI:
         self.only_qrf = only_qrf
         self.quantile = quantile
 
-        if self.estimator == 'clf':
+        if nonconformity_func is not None:
+            self.r_cali = nonconformity_func(self.pred_cali, self.y_cali)
+            self.nonconformity_score = nonconformity_func
+        elif self.estimator == 'clf':
             self.pred_cali_proba = self.model_cali.predict_proba(self.x_cali).astype(np.double)
             self.r_cali = classifier_score(self.pred_cali_proba, self.y_cali)
             self.nonconformity_score = classifier_score
-        elif nonconformity_func is not None:
-            self.r_cali = nonconformity_func(self.pred_cali, self.y_cali)
-            self.nonconformity_score = nonconformity_func
         elif self.pred_cali.ndim > 1:
             self.r_cali = quantile_score(self.pred_cali, self.y_cali)
             self.nonconformity_score = quantile_score
@@ -317,9 +324,9 @@ class ACPI:
             self.r_cali = mean_score(self.pred_cali, self.y_cali)
             self.nonconformity_score = mean_score
 
-        self.r_cali = as_float_array(self.r_cali).astype(np.double)
+        self.r_cali = self.r_cali.astype(np.double)
 
-        print('Training calibration of QRF')
+        logger.info('Training calibration of QRF')
         self.alpha_star, self.coverage_qrf, self.idx_marg, self.idx_train = self.fit_qrf_calibration(steps=n_steps_qrf,
                                                                                                      n_iter=n_iter_qrf)
         if self.only_qrf:
@@ -339,8 +346,7 @@ class ACPI:
             if self.estimator == 'clf':
                 self.pred_cali_proba_train = self.pred_cali_proba[self.idx_train]
 
-        print('Marginal calibration of RF-LCP')
-
+        logger.info('Marginal calibration of RF-LCP')
         self.d = self.x_cali.shape[1]
         self.model.fit(self.x_cali, self.r_cali)
         self.ACPI = BaseAgnosTree(self.model, self.d)
@@ -350,7 +356,7 @@ class ACPI:
         self.check_is_calibrate = True
 
         if training_conditional:
-            print('Training-conditional calibration of LCP-RF')
+            logger.info('Training-conditional calibration of LCP-RF')
             self.r_lcp_train_cali, self.s_lcp_train_cali, self.support_train_cali = self.predict_rf_lcp_support(
                 self.x_cali_train, quantile)
             # self.support_train_cali = np.sort(self.support_train_cali)
@@ -359,13 +365,13 @@ class ACPI:
             self.check_is_training_conditional = True
 
         if training_conditional_one:
-            print('Training-conditional-one calibration of RF-LCP')
+            logger.info('Training-conditional-one calibration of RF-LCP')
 
             self.k_cali_one, self.coverage_cali_one = self.train_conditional_calibration_one()
             self.check_is_training_conditional_one = True
 
         if bygroup:
-            print('Computing communities using the RF weights')
+            logger.info('Computing communities using the RF weights')
             weights_csr = csr_matrix(self.w_cali)
             s, communities = sp.csgraph.connected_components(weights_csr, directed=False)
             if s > 1:
@@ -380,7 +386,7 @@ class ACPI:
             self.x_cali_bygroup = []
             self.r_cali_bygroup = []
             self.w_cali_bygroup = []
-            print('Marginal calibration of Group-wise RF-LCP')
+            logger.info('Marginal calibration of Group-wise RF-LCP')
             for group in np.unique(self.communities):
                 self.x_cali_bygroup.append(self.x_cali[self.communities == group])
                 self.r_cali_bygroup.append(self.r_cali[self.communities == group])
@@ -394,7 +400,7 @@ class ACPI:
             self.check_is_calibrate_bygroup = True
 
             if training_conditional:
-                print('Training-conditional calibration of Group-wise LCP')
+                logger.info('Training-conditional calibration of Group-wise LCP')
                 self.r_lcp_bygroup, self.s_lcp_bygroup = self.predict_rf_lcp_bygroup(self.x_cali_train, quantile)
                 self.k_cali_bygroup, self.coverage_cali_bygroup = \
                     self.train_conditional_calibration_bygroup()
@@ -455,13 +461,7 @@ class ACPI:
                     y_pred_set = np.greater_equal(pred_cali_proba_train, 1 - r.reshape(-1, 1))
                     coverage = compute_coverage_classification(y_pred_set, y_cali_train)
                 else:
-                    if self.pred_cali.ndim == 1:
-                        y_lower_qrft = pred_cali_train - r
-                        y_upper_qrft = pred_cali_train + r
-                    else:
-                        y_lower_qrft = pred_cali_train[:, 0] - r
-                        y_upper_qrft = pred_cali_train[:, 1] + r
-
+                    y_lower_qrft, y_upper_qrft = compute_pi(pred_cali_train, r)
                     coverage = compute_coverage(y_cali_train, y_lower_qrft, y_upper_qrft)
 
                 if coverage >= self.quantile:
@@ -506,12 +506,8 @@ class ACPI:
             . For classification, it returns the Predictive sets as a boolean ndarray of shape (n_samples, n_class).
         """
         if method == 'qrf':
-            if not self.check_is_qrf_calibration:
-                raise ValueError('You need to fit the QRF calibration before')
             r = self.predict_qrf_r(x_test)
         elif method == 'lcp-rf':
-            if not self.check_is_qrf_calibration:
-                raise ValueError('You need to fit the QRF calibration before')
             r, _ = self.predict_rf_lcp_train_one(x_test, self.quantile)
         elif method == 'lcp-rf-group':
             r, _ = self.predict_rf_lcp_bygroup_train(x_test, self.quantile)
@@ -524,12 +520,7 @@ class ACPI:
             y_pred_set = np.greater_equal(pred_proba, 1 - r.reshape(-1, 1))
             return y_pred_set
         else:
-            if self.pred_cali.ndim > 1:
-                y_lower = pred[:, 0] - r
-                y_upper = pred[:, 1] + r
-            else:
-                y_lower = pred - r
-                y_upper = pred + r
+            y_lower, y_upper = compute_pi(pred, r)
         return y_lower, y_upper
 
     def predict_qrf_pi(self, x_test):
@@ -547,8 +538,7 @@ class ACPI:
 
             For classification, it returns the Predictive sets as a boolean ndarray of shape (n_samples, n_class).
         """
-        if not self.check_is_qrf_calibration:
-            raise ValueError('You need to fit the QRF calibration before')
+        check_is_qrf_calibration(self)
         r = self.predict_qrf_r(x_test)
         pred = self.model_cali.predict(x_test)
         if self.estimator == 'clf':
@@ -556,12 +546,7 @@ class ACPI:
             y_pred_set = np.greater_equal(pred_proba, 1 - r.reshape(-1, 1))
             return y_pred_set
         else:
-            if self.pred_cali.ndim > 1:
-                y_lower = pred[:, 0] - r
-                y_upper = pred[:, 1] + r
-            else:
-                y_lower = pred - r
-                y_upper = pred + r
+            y_lower, y_upper = compute_pi(pred, r)
         return y_lower, y_upper
 
     def predict_qrf_r(self, x_test, quantile=None):
@@ -579,8 +564,7 @@ class ACPI:
         numpy.array
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
-        if not self.check_is_qrf_calibration:
-            raise ValueError('You need to fit the QRF calibration before')
+        check_is_qrf_calibration(self)
         if quantile is None:
             return self.qrf.predict_quantiles(x_test, quantiles=[self.alpha_star])
         return self.qrf.predict_quantiles(x_test, quantiles=[quantile]), None
@@ -600,8 +584,7 @@ class ACPI:
         numpy.array
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
-        if not self.check_is_calibrate:
-            raise ValueError('You need to fit the calibration before')
+        check_is_calibrate(self)
         return cyext_acpi.compute_rf_lcp(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
 
     def predict_rf_lcp_train(self, x_test, quantile, k=None):
@@ -619,14 +602,12 @@ class ACPI:
         numpy.array
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
-        if not self.check_is_training_conditional:
-            raise ValueError('You need to fit the calibration with training_conditional=True '
-                             'before')
+        check_is_training_conditional(self)
         if k is None:
             return cyext_acpi.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
-                                                  self.w_cali, quantile, self, self.k_cali)
+                                                   self.w_cali, quantile, self, self.k_cali)
         return cyext_acpi.compute_rf_lcp_train(x_test, self.x_cali, self.r_cali,
-                                              self.w_cali, quantile, self, k)
+                                               self.w_cali, quantile, self, k)
 
     def predict_rf_lcp_train_one(self, x_test, quantile, k=None):
         """Compute the correction term for training-conditional LCP-RF using discretization of (0, 1).
@@ -643,14 +624,12 @@ class ACPI:
         numpy.array
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
-        if not self.check_is_training_conditional * self.check_is_training_conditional_one:
-            raise ValueError('You need to fit the calibration with training_conditional/one=True '
-                             'before')
+        check_is_training_conditional_one(self)
         if k is None:
             return cyext_acpi.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
-                                                      self.w_cali, quantile, self, self.k_cali_one)
+                                                       self.w_cali, quantile, self, self.k_cali_one)
         return cyext_acpi.compute_rf_lcp_train_one(x_test, self.x_cali, self.r_cali,
-                                                  self.w_cali, quantile, self, k)
+                                                   self.w_cali, quantile, self, k)
 
     def predict_rf_lcp_bygroup(self, x_test, quantile):
         """Compute the correction term for groupwise LCP-RF.
@@ -667,9 +646,7 @@ class ACPI:
         numpy.array
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
-        if not self.check_is_calibrate_bygroup:
-            raise ValueError('You need to fit the calibration with bygroup=True before')
-
+        check_is_calibrate_bygroup(self)
         y_test_base = np.zeros(x_test.shape[0])
         w_test = self.compute_forest_weights(x_test, y_test_base, self.x_cali, self.r_cali)
         groups = np.unique(self.communities)
@@ -679,7 +656,7 @@ class ACPI:
 
         group_test = np.argmax(p_test, axis=1)
         return cyext_acpi.compute_rf_lcp_bygroup(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
-                                                self.w_cali_bygroup, quantile, self, group_test)
+                                                 self.w_cali_bygroup, quantile, self, group_test)
 
     def predict_rf_lcp_bygroup_train(self, x_test, quantile, k=None):
         """Compute the correction term for training-conditional groupwsize LCP-RF.
@@ -697,9 +674,7 @@ class ACPI:
             ndarray of shape (n_samples,) that corresponds the corrected terms or the adapted quantiles.
         """
 
-        if not self.check_is_training_conditional_bygroup:
-            raise ValueError('You need to fit the calibration with bygroup=True and training_conditional =True before')
-
+        check_is_training_conditional_bygroup(self)
         y_test_base = np.zeros(x_test.shape[0])
         w_test = self.compute_forest_weights(x_test, y_test_base, self.x_cali, self.r_cali)
         groups = np.unique(self.communities)
@@ -710,16 +685,15 @@ class ACPI:
         group_test = np.argmax(p_test, axis=1)
         if k is None:
             return cyext_acpi.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
-                                                          self.w_cali_bygroup, quantile, self, group_test,
-                                                          self.k_cali_bygroup)
+                                                           self.w_cali_bygroup, quantile, self, group_test,
+                                                           self.k_cali_bygroup)
         else:
             return cyext_acpi.compute_rf_lcp_bygroup_train(x_test, self.x_cali_bygroup, self.r_cali_bygroup,
-                                                          self.w_cali_bygroup, quantile, self, group_test,
-                                                          k)
+                                                           self.w_cali_bygroup, quantile, self, group_test,
+                                                           k)
 
     def predict_rf_lcp_support(self, x_test, quantile):
-        if not self.check_is_calibrate:
-            raise ValueError('You need to fit the calibration before')
+        check_is_calibrate(self)
         return cyext_acpi.compute_rf_lcp_support(x_test, self.x_cali, self.r_cali, self.w_cali, quantile, self)
 
     def train_conditional_calibration(self):
@@ -736,19 +710,13 @@ class ACPI:
             y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - self.r_lcp_train_cali.reshape(-1, 1))
             coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
         else:
-            if self.pred_cali.ndim == 1:
-                y_lower = self.pred_cali_train - self.r_lcp_train_cali
-                y_upper = self.pred_cali_train + self.r_lcp_train_cali
-            else:
-                y_lower = self.pred_cali_train[:, 0] - self.r_lcp_train_cali
-                y_upper = self.pred_cali_train[:, 1] + self.r_lcp_train_cali
-
+            y_lower, y_upper = compute_pi(self.pred_cali_train, self.r_lcp_train_cali)
             coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
 
         possible_values = []
         for i in range(self.x_cali_train.shape[0]):
             possible_values.append(get_values_greater_than(self.support_train_cali[i], self.r_lcp_train_cali[i]))
-            # print('values', possible_values[-1])
+            # logger.info('values', possible_values[-1])
 
         r_lcp_train = np.zeros(shape=self.r_lcp_train_cali.shape)
 
@@ -764,15 +732,10 @@ class ACPI:
                 y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - r_lcp_train.reshape(-1, 1))
                 coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
             else:
-                if self.pred_cali.ndim == 1:
-                    y_lower = self.pred_cali_train - r_lcp_train
-                    y_upper = self.pred_cali_train + r_lcp_train
-                else:
-                    y_lower = self.pred_cali_train[:, 0] - r_lcp_train
-                    y_upper = self.pred_cali_train[:, 1] + r_lcp_train
+                y_lower, y_upper = compute_pi(self.pred_cali_train, r_lcp_train)
                 coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
             k += 1
-            # print(k, r_lcp_train[i], r_lcp[i], coverage)
+            # logger.info(k, r_lcp_train[i], r_lcp[i], coverage)
         return k, coverage
 
     def train_conditional_calibration_one(self):
@@ -789,12 +752,7 @@ class ACPI:
             y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - self.r_lcp_train_cali.reshape(-1, 1))
             coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
         else:
-            if self.pred_cali.ndim == 1:
-                y_lower = self.pred_cali_train - self.r_lcp_train_cali
-                y_upper = self.pred_cali_train + self.r_lcp_train_cali
-            else:
-                y_lower = self.pred_cali_train[:, 0] - self.r_lcp_train_cali
-                y_upper = self.pred_cali_train[:, 1] + self.r_lcp_train_cali
+            y_lower, y_upper = compute_pi(self.pred_cali_train, self.r_lcp_train_cali)
             coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
 
         r_lcp_train = np.zeros(shape=self.r_lcp_train_cali.shape)
@@ -815,12 +773,7 @@ class ACPI:
                 y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - r_lcp_train.reshape(-1, 1))
                 coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
             else:
-                if self.pred_cali.ndim == 1:
-                    y_lower = self.pred_cali_train - r_lcp_train
-                    y_upper = self.pred_cali_train + r_lcp_train
-                else:
-                    y_lower = self.pred_cali_train[:, 0] - r_lcp_train
-                    y_upper = self.pred_cali_train[:, 1] + r_lcp_train
+                y_lower, y_upper = compute_pi(self.pred_cali_train, r_lcp_train)
                 coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
         return k, coverage
 
@@ -846,13 +799,7 @@ class ACPI:
             y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - self.r_lcp_bygroup.reshape(-1, 1))
             coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
         else:
-            if self.pred_cali.ndim == 1:
-                y_lower = self.pred_cali_train - self.r_lcp_bygroup
-                y_upper = self.pred_cali_train + self.r_lcp_bygroup
-            else:
-                y_lower = self.pred_cali_train[:, 0] - self.r_lcp_bygroup
-                y_upper = self.pred_cali_train[:, 1] - self.r_lcp_bygroup
-
+            y_lower, y_upper = compute_pi(self.pred_cali_train, self.r_lcp_bygroup)
             coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
 
         r_lcp_train = np.zeros(shape=self.r_lcp_bygroup.shape)
@@ -874,12 +821,7 @@ class ACPI:
                 y_pred_set = np.greater_equal(self.pred_cali_proba_train, 1 - r_lcp_train.reshape(-1, 1))
                 coverage = compute_coverage_classification(y_pred_set, self.y_cali_train)
             else:
-                if self.pred_cali.ndim == 1:
-                    y_lower = self.pred_cali_train - r_lcp_train
-                    y_upper = self.pred_cali_train + r_lcp_train
-                else:
-                    y_lower = self.pred_cali_train[:, 0] - r_lcp_train
-                    y_upper = self.pred_cali_train[:, 1] + r_lcp_train
+                y_lower, y_upper = compute_pi(self.pred_cali_train, r_lcp_train)
                 coverage = compute_coverage(self.y_cali_train, y_lower, y_upper)
         return k, coverage
 
@@ -909,11 +851,11 @@ class ACPI:
         y, y_data = as_float_array(y).astype(np.double), as_float_array(y_data).astype(np.double)
         self.check_is_acpi_fitted()
         w = cyext_acpi.compute_forest_weights_verbose(X, y, data, y_data,
-                                                     self.ACPI.features,
-                                                     self.ACPI.thresholds,
-                                                     self.ACPI.children_left,
-                                                     self.ACPI.children_right,
-                                                     self.min_node_size)
+                                                      self.ACPI.features,
+                                                      self.ACPI.thresholds,
+                                                      self.ACPI.children_left,
+                                                      self.ACPI.children_right,
+                                                      self.min_node_size)
 
         return w
 
@@ -940,11 +882,11 @@ class ACPI:
             associate to X[i].
         """
         w = cyext_acpi.compute_forest_weights_cali_verbose(X, data, y_data,
-                                                          self.ACPI.features,
-                                                          self.ACPI.thresholds,
-                                                          self.ACPI.children_left,
-                                                          self.ACPI.children_right,
-                                                          self.min_node_size, weights)
+                                                           self.ACPI.features,
+                                                           self.ACPI.thresholds,
+                                                           self.ACPI.children_left,
+                                                           self.ACPI.children_right,
+                                                           self.min_node_size, weights)
         return w
 
     def predict(self, X):
@@ -966,9 +908,38 @@ class ACPI:
                             " before using this estimator")
         return self.model.predict(X)
 
+    def fit_reject(self, model_reject, n_steps_qrf=40, n_iter_qrf=50, split=False):
+        if not self.check_is_qrf_calibration:
+            self.alpha_star, self.coverage_qrf, self.idx_marg, self.idx_train = self.fit_qrf_calibration(
+                steps=n_steps_qrf,
+                n_iter=n_iter_qrf)
+            self.check_is_qrf_calibration = True
+
+        self.model_reject = model_reject
+
+        if self.x_cali_train is None:
+            self.x_cali_train = self.x_cali[self.idx_train]
+            self.r_cali_train = self.r_cali[self.idx_train]
+            x_cali = self.x_cali[self.idx_marg]
+            r_cali = self.r_cali[self.idx_marg]
+        else:
+            x_cali = self.x_cali
+            r_cali = self.r_cali
+
+        if not self.model_reject.__sklearn_is_fitted__():
+            if split:
+                self.model_reject.fit(x_cali, r_cali)
+            else:
+                self.model_reject.fit(self.x_cali, self.r_cali)
+        self.check_is_reject_fitted = True
+
+    def predict_wreject(self, X, v_star, level=0.2, delta=0.1, method='marginal'):
+        check_is_reject_fitted(self)
+        return prediction_wreject(self.model_reject, X, self.x_cali_train, self.r_cali_train, v_star, level, delta,
+                                  method)
+
     def check_is_acpi_fitted(self):
         """Check if ACPI estimator is fitted.
-
         """
         check_is_fitted(self.model,
                         msg="ACPI estimator instance is not fitted yet. Call 'fit_calibration' with appropriate arguments"
