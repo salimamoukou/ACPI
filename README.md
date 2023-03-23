@@ -1,11 +1,21 @@
 ![build and test](https://github.com/salimamoukou/ACPI/actions/workflows/build_test.yml/badge.svg)
-## Adaptive Conformal Prediction Intervals (ACPI)
 
-**ACPI** offers Adaptive Prediction Intervals (PI) that accurately represent the
- uncertainty of a given model, with finite-sample marginal and training-conditional coverage, 
- as well as asymptotic conditional coverage.  It has been proven to significantly outperform the split-conformal 
- approach, regardless of the nonconformity score used (such as mean score, quantile score, etc.).
-## Requirements
+ACPI - Adaptive Conformal Prediction Intervals
+====================================================
+
+
+**ACPI** is a Python package that enhances the Predictive Intervals provided by the split conformal approach by employing a weighting strategy. Unlike the latter that use a constant correction for
+all test points to ensure coverage guarantee, ACPI use an adaptive correction
+term that depends on the specific test observation.
+
+ACPI gives PI that better represent the uncertainty of the model or the epistemic uncertainty and
+are backed by strong theoretical gaurantees: marginal and training-conditional coverage, as well as asymptotic coverage guarantee.
+
+Paper: [Adaptive Conformal Prediction By Reweighting the Nonconformity Score](https://arxiv.org/pdf/2303.12695.pdf)
+
+
+🔗 Requirements
+===============
 Python 3.7+ 
 
 **OSX**: ACPI uses Cython extensions that need to be compiled with multi-threading support enabled. 
@@ -21,7 +31,8 @@ Install the required packages:
 $ pip install -r requirements.txt
 ```
 
-## Installation
+🛠 Installation
+===============
 
 Clone the repo and run the following command in the ACPI directory to install ACPI
 ```
@@ -32,7 +43,8 @@ To make an all-in-one installation, you can run the bash script: install.sh
 $ bash install.sh
 ```
 
-## Quickstart
+⚡️ Quickstart
+==============
 We propose 3 methods to compute PI: **LCP-RF** , **LCP-RF-G**, and **QRF-TC**.
 - **LCP-RF**: Random Forest Localizer. It used the learned weights of the RF to give more importance to calibration 
 samples that have residuals similar to the test points in the calibration step.
